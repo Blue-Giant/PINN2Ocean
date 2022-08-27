@@ -15,8 +15,8 @@ import DNN_Log_Print
 
 
 class PDE_DNN(object):
-    def __init__(self, input_dim=2, out_dim=1, hidden_layer=None, Model_name='DNN', name2actIn='relu',
-                 name2actHidden='relu', name2actOut='linear', opt2regular_WB='L2', type2numeric='float32',
+    def __init__(self, input_dim=2, out_dim=1, hidden_layer=None, Model_name='DNN', name2actIn='tanh',
+                 name2actHidden='tanh', name2actOut='linear', opt2regular_WB='L2', type2numeric='float32',
                  factor2freq=None, sFourier=1.0, ws=0.001, ds=0.0002, HighFreq=False):
         super(PDE_DNN, self).__init__()
         if 'DNN' == str.upper(Model_name):
@@ -381,8 +381,8 @@ if __name__ == "__main__":
 
     R['PDE_type'] = 'Ocean'
     R['equa_name'] = 'Settling-diffusion'
-    R['input_dim'] = 1  # 输入维数，即问题的维数(几元问题)
-    R['output_dim'] = 1  # 输出维数
+    R['input_dim'] = 1                   # 输入维数，即问题的维数(几元问题)
+    R['output_dim'] = 1                  # 输出维数
 
     # %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Setup of DNN %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # 训练集的设置(内部和边界)
@@ -429,9 +429,9 @@ if __name__ == "__main__":
     R['freq'] = np.concatenate(([1], np.arange(1, 30 - 1)), axis=0)
 
     # &&&&&&&&&&&&&&&&&&& 使用的网络模型 &&&&&&&&&&&&&&&&&&&&&&&&&&&
-    # R['model2NN'] = 'DNN'
+    R['model2NN'] = 'DNN'
     # R['model2NN'] = 'Scale_DNN'
-    R['model2NN'] = 'Fourier_DNN'
+    # R['model2NN'] = 'Fourier_DNN'
 
     # &&&&&&&&&&&&&&&&&&&&&& 隐藏层的层数和每层神经元数目 &&&&&&&&&&&&&&&&&&&&&&&&&&&&
     if R['model2NN'] == 'Fourier_DNN':
@@ -440,16 +440,16 @@ if __name__ == "__main__":
         R['hidden_layers'] = (100, 80, 60, 60, 40)  # 1*250+250*100+100*80+80*80+80*60+60*1= 44510 个参数
 
     # &&&&&&&&&&&&&&&&&&& 激活函数的选择 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    R['name2act_in'] = 'tanh'
+    # R['name2act_in'] = 'tanh'
     # R['name2act_in'] = 's2relu'
-    # R['name2act_in'] = 'sin'
+    R['name2act_in'] = 'sin'
     # R['name2act_in'] = 'sinADDcos'
 
     # R['name2act_hidden'] = 'relu'
-    R['name2act_hidden'] = 'tanh'
+    # R['name2act_hidden'] = 'tanh'
     # R['name2act_hidden'] = 'srelu'
     # R['name2act_hidden'] = 's2relu'
-    # R['name2act_hidden'] = 'sin'
+    R['name2act_hidden'] = 'sin'
     # R['name2act_hidden'] = 'sinADDcos'
     # R['name2act_hidden'] = 'elu'
     # R['name2act_hidden'] = 'phi'
