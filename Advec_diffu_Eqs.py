@@ -4,16 +4,16 @@ import tensorflow as tf
 
 def get_infos2Advection_1D(x_left=0.0, x_right=1.0, t_init=0.0, ws=0.1, ds=0.1, eqs_name=None):
     if eqs_name == 'Advection1':
-        Utrue = lambda t, x: (0.025 / np.sqrt(0.000625 + 0.02 * t)) * np.exp(-(x + 0.5 - t) * (x + 0.5 - t) / (0.00125 + 0.04 * t))
-        Uleft = lambda t, x: (0.025 / np.sqrt(0.000625 + 0.02 * t)) * np.exp(-(x_left + 0.5 - t) * (x_left + 0.5 - t) / (0.00125 + 0.04 * t))
-        Uright = lambda t, x: (0.025 / np.sqrt(0.000625 + 0.02 * t)) * np.exp(-(x_right + 0.5 - t) * (x_right + 0.5 - t) / (0.00125 + 0.04 * t))
-        Uinit = lambda t, x: (0.025 / np.sqrt(0.000625 + 0.02 * t_init)) * np.exp(-(x + 0.5 - t_init) * (x + 0.5 - t_init) / (0.00125 + 0.04 * t_init))
+        Utrue = lambda x, t: (0.025 / np.sqrt(0.000625 + 0.02 * t)) * np.exp(-(x + 0.5 - t) * (x + 0.5 - t) / (0.00125 + 0.04 * t))
+        Uleft = lambda x, t: (0.025 / np.sqrt(0.000625 + 0.02 * t)) * np.exp(-(x_left + 0.5 - t) * (x_left + 0.5 - t) / (0.00125 + 0.04 * t))
+        Uright = lambda x, t: (0.025 / np.sqrt(0.000625 + 0.02 * t)) * np.exp(-(x_right + 0.5 - t) * (x_right + 0.5 - t) / (0.00125 + 0.04 * t))
+        Uinit = lambda x, t: (0.025 / np.sqrt(0.000625 + 0.02 * t_init)) * np.exp(-(x + 0.5 - t_init) * (x + 0.5 - t_init) / (0.00125 + 0.04 * t_init))
         return Utrue, Uleft, Uright, Uinit
     elif eqs_name == 'Advection2':
-        Utrue = lambda t, x: 1.0 / np.sqrt(4.0 * t + 1) * np.exp(-(x - 1.0 - ws*t) * (x - 1.0 - ws*t) / (ds*4.0 * t + ds))
-        Uleft = lambda t, x: 1.0 / np.sqrt(4.0 * t + 1) * np.exp(-(x_left - 1.0 - ws*t) * (x_left - 1.0 - ws*t) / (ds*4.0 * t + ds))
-        Uright = lambda t, x: 1.0 / np.sqrt(4.0 * t + 1) * np.exp(-(x_right - 1.0 - ws*t) * (x_right - 1.0 - ws*t) / (ds*4.0 * t + ds))
-        Uinit = lambda t, x: 1.0 / np.sqrt(4.0 * t_init + 1) * np.exp(-(x - 1.0 - ws*t_init) * (x - 1.0 - ws*t_init) / (ds*4.0 * t_init + ds))
+        Utrue = lambda x, t: 1.0 / np.sqrt(4.0 * t + 1) * np.exp(-(x - 1.0 - ws*t) * (x - 1.0 - ws*t) / (ds*4.0 * t + ds))
+        Uleft = lambda x, t: 1.0 / np.sqrt(4.0 * t + 1) * np.exp(-(x_left - 1.0 - ws*t) * (x_left - 1.0 - ws*t) / (ds*4.0 * t + ds))
+        Uright = lambda x, t: 1.0 / np.sqrt(4.0 * t + 1) * np.exp(-(x_right - 1.0 - ws*t) * (x_right - 1.0 - ws*t) / (ds*4.0 * t + ds))
+        Uinit = lambda x, t: 1.0 / np.sqrt(4.0 * t_init + 1) * np.exp(-(x - 1.0 - ws*t_init) * (x - 1.0 - ws*t_init) / (ds*4.0 * t_init + ds))
         return Utrue, Uleft, Uright, Uinit
 
 

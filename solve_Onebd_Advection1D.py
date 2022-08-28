@@ -186,7 +186,7 @@ def solve_Advection_diffusion(R):
             U_in2train = tf.compat.v1.placeholder(tf.float32, name='U_in2train', shape=[batchsize_in, 1])  # * 行 1 列
 
             Xbd_left = tf.compat.v1.placeholder(tf.float32, name='Xbd_left', shape=[batchsize_bd, input_dim])    # *行1列
-            Xbd_right = tf.compat.v1.placeholder(tf.float32, name='Xbd_right', shape=[batchsize_bd, input_dim])  # *行1列
+            # Xbd_right = tf.compat.v1.placeholder(tf.float32, name='Xbd_right', shape=[batchsize_bd, input_dim])  # *行1列
             t_bd = tf.compat.v1.placeholder(tf.float32, name='t_bd', shape=[batchsize_bd, 1])
 
             Ubd_left = tf.compat.v1.placeholder(tf.float32, name='Ubd_left', shape=[batchsize_bd, 1])
@@ -205,9 +205,9 @@ def solve_Advection_diffusion(R):
 
             UNN2train, loss_it, dUNN2dX, dUNN2dt, dUNN2dxx = model.loss2PDE(X=X_in, t=t_in, loss_type=R['loss_type'])
 
-            loss_left = model.loss2bd(X_bd=Xbd_left, t=t_bd, Ubd_exact=Ubd_left, if_lambda2Ubd=False)
-            loss_right = model.loss2bd(X_bd=Xbd_right, t=t_bd, Ubd_exact=Ubd_right, if_lambda2Ubd=False)
-            loss_bd = loss_left + loss_right
+            loss_bd = model.loss2bd(X_bd=Xbd_left, t=t_bd, Ubd_exact=Ubd_left, if_lambda2Ubd=False)
+            # loss_right = model.loss2bd(X_bd=Xbd_right, t=t_bd, Ubd_exact=Ubd_right, if_lambda2Ubd=False)
+            # loss_bd = loss_left + loss_right
 
             loss_init = model.loss2Init(X=Xinit, tinit=tinit, Uinit_exact=Uinit, if_lambda2Uinit=False)
 
@@ -252,7 +252,7 @@ def solve_Advection_diffusion(R):
             t_bd_batch = DNN_data.rand_it(batchsize_bd, 1, region_a=init_time, region_b=end_time)
 
             Ubd2left_numpy = U_left(xl_bd_batch, t_bd_batch)
-            Ubd2right_numpy = U_right(xr_bd_batch, t_bd_batch)
+            # Ubd2right_numpy = U_right(xr_bd_batch, t_bd_batch)
 
             x_init_batch = DNN_data.rand_it(batchsize_init, input_dim, region_a=region_l, region_b=region_r)
             t_init_batch = np.ones(shape=[batchsize_init, 1], dtype=np.float32) * init_time
@@ -295,8 +295,7 @@ def solve_Advection_diffusion(R):
             _, loss_it_tmp, loss_bd_tmp, loss_init_tmp, loss_tmp, train_mse_tmp, train_res_tmp, pwb = sess.run(
                 [train_my_loss, loss_it, loss_bd, loss_init, loss, mean_square_error, residual_error, PWB],
                 feed_dict={X_in: x_in_batch, t_in: t_in_batch, U_in2train: Uin_numpy, Xbd_left: xl_bd_batch,
-                           Xbd_right: xr_bd_batch, t_bd: t_bd_batch, Ubd_left: Ubd2left_numpy,
-                           Ubd_right: Ubd2right_numpy, Xinit: x_init_batch, tinit: t_init_batch,
+                           t_bd: t_bd_batch, Ubd_left: Ubd2left_numpy, Xinit: x_init_batch, tinit: t_init_batch,
                            Uinit: Uinit_numpy, in_learning_rate: tmp_lr, boundary_penalty: temp_penalty_bd,
                            init_penalty: temp_penalty_init})
 
