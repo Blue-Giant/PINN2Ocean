@@ -416,8 +416,8 @@ if __name__ == "__main__":
     # R['penalty2weight_biases'] = 0.0025                 # Regularization parameter for weights
 
     # 边界的惩罚处理方式,以及边界的惩罚因子
-    R['activate_penalty2bd_increase'] = 0
-    # R['activate_penalty2bd_increase'] = 1
+    # R['activate_penalty2bd_increase'] = 0
+    R['activate_penalty2bd_increase'] = 1
 
     if R['activate_penalty2bd_increase'] == 0:
         R['init_boundary_penalty'] = 100  # Regularization parameter for boundary conditions
