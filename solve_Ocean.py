@@ -13,7 +13,6 @@ import plotData
 import DNN_Class_base
 import DNN_Log_Print
 import DNN_tools
-import Advec_diffu_Eqs
 import DNN_data
 
 
@@ -139,18 +138,18 @@ def solve_ocean(R):
     DNN_Log_Print.dictionary2space_time(R, log_fileout)
 
     # 问题设置
-    zs = 0.1
-    ze = 2
-    ts = 1
-    te = 100
+    zs = 0.0
+    ze = 2.0
+    ts = 0.0
+    te = 20.0
     zsteps = 10
     tsteps = 100
-    # ws = 0.001
-    # ds = 0.0002
-    # p = 0.0001
-    ws = 0.1
-    ds = 0.02
-    p = 0.1
+    ws = 0.001
+    ds = 0.0002
+    p = 0.0001
+    # ws = 0.1
+    # ds = 0.02
+    # p = 0.1
 
     # 生成数据
     data = DataGen2(zs, ze, ts, te, zsteps=zsteps, tsteps=tsteps, ws=ws, ds=ds, p=p)
@@ -181,7 +180,6 @@ def solve_ocean(R):
         with tf.compat.v1.variable_scope('vscope', reuse=tf.compat.v1.AUTO_REUSE):
             X_in = tf.compat.v1.placeholder(tf.float32, name='X_in', shape=[batchsize_in, input_dim])  # * 行 1 列
             t_in = tf.compat.v1.placeholder(tf.float32, name='t_in', shape=[batchsize_in, 1])          # * 行 1 列
-            U_in2train = tf.compat.v1.placeholder(tf.float32, name='U_in2train', shape=[batchsize_in, 1])  # * 行 1 列
 
             Xbd_left = tf.compat.v1.placeholder(tf.float32, name='Xbd_left', shape=[batchsize_bd, input_dim])    # *行1列
             t_bd = tf.compat.v1.placeholder(tf.float32, name='t_bd', shape=[batchsize_bd, 1])
@@ -199,7 +197,7 @@ def solve_ocean(R):
             X_in2test = tf.compat.v1.placeholder(tf.float32, name='X_in2test', shape=[batchsize_test, input_dim])
             t_in2test = tf.compat.v1.placeholder(tf.float32, name='t_in2test', shape=[batchsize_test, 1])
 
-            UNN2train, loss_it, dUNN2dX, dUNN2dt, dUNN2dxx = model.loss2PDE(X=X_in, t=t_in, loss_type=R['loss_type'])
+            UNN2train, loss_in, dUNN2dX, dUNN2dt, dUNN2dxx = model.loss2PDE(X=X_in, t=t_in, loss_type=R['loss_type'])
 
             loss_bd = model.loss2bd(X_bd=Xbd_left, t=t_bd, Ubd_exact=Ubd_left, if_lambda2Ubd=False)
 
@@ -208,14 +206,10 @@ def solve_ocean(R):
             regularSum2WB = model.get_regularSum2WB()
             PWB = penalty2WB * regularSum2WB
 
-            loss = loss_it + boundary_penalty * loss_bd + init_penalty * loss_init + PWB  # 要优化的loss function
+            loss = loss_in + boundary_penalty * loss_bd + init_penalty * loss_init + PWB  # 要优化的loss function
 
             my_optimizer = tf.compat.v1.train.AdamOptimizer(in_learning_rate)
             train_my_loss = my_optimizer.minimize(loss, global_step=global_steps)
-
-            # 训练上的真解值和训练结果的误差
-            mean_square_error = tf.reduce_mean(tf.square(U_in2train - UNN2train))
-            residual_error = mean_square_error / tf.reduce_mean(tf.square(U_in2train))
 
             UNN2test = model.evaluate_PDE_DNN(X_points=X_in2test, t_points=t_in2test)
 
@@ -224,7 +218,9 @@ def solve_ocean(R):
     test_mse_all, test_rel_all = [], []                                                    # 空列表, 使用 append() 添加元素
     test_epoch = []
 
-    x_test, t_test = data.gen_mesh2scatter(batch_size2mesh=batchsize2mesh_test)
+    # x_test, t_test = data.gen_mesh2scatter(batch_size2mesh=batchsize2mesh_test)
+    x_test = DNN_data.rand_it(batchsize_test, input_dim, region_a=zs, region_b=ze)
+    t_test = DNN_data.rand_it(batchsize_test, 1, region_a=ts, region_b=te)
     test_xt_points = np.concatenate([x_test, t_test], axis=-1)
     saveData.save_testData_or_solus2mat(test_xt_points, dataName='testxy', outPath=R['FolderName'])
     u_true2test = np.zeros_like(x_test)
@@ -240,9 +236,17 @@ def solve_ocean(R):
         sess.run(tf.compat.v1.global_variables_initializer())
         tmp_lr = learning_rate
         for i_epoch in range(R['max_epoch'] + 1):
-            x_in_batch, t_in_batch, in_labels = data.gen_inter_m(batchsize_in)
-            x_bd_batch, t_bd_batch,  bd_labels = data.gen_bound(batchsize_bd)
-            x_init_batch, t_init_batch, init_labels = data.gen_init(batchsize_init)
+
+            x_in_batch = DNN_data.rand_it(batchsize_in, input_dim, region_a=zs, region_b=ze)
+            t_in_batch = DNN_data.rand_it(batchsize_in, 1, region_a=ts, region_b=te)
+
+            x_bd_batch, xr_bd_batch = DNN_data.rand_bd_1D(batchsize_bd, input_dim, region_a=zs, region_b=ze)
+            t_bd_batch = DNN_data.rand_it(batchsize_bd, 1, region_a=ts, region_b=te)
+            Utrue2bd = np.ones(shape=[batchsize_init, 1], dtype=np.float32) * p
+
+            x_init_batch = DNN_data.rand_it(batchsize_init, input_dim, region_a=zs, region_b=ze)
+            t_init_batch = np.ones(shape=[batchsize_init, 1], dtype=np.float32) * ts
+            Utrue2init = np.zeros(shape=[batchsize_init, 1], dtype=np.float32)
 
             tmp_lr = tmp_lr * (1 - lr_decay)
             if R['activate_penalty2bd_increase'] == 1:
@@ -277,31 +281,22 @@ def solve_ocean(R):
             else:
                 temp_penalty_init = init_penalty_init
 
-            _, loss_it_tmp, loss_bd_tmp, loss_init_tmp, loss_tmp, train_mse_tmp, train_res_tmp, pwb = sess.run(
-                [train_my_loss, loss_it, loss_bd, loss_init, loss, mean_square_error, residual_error, PWB],
-                feed_dict={X_in: x_in_batch, t_in: t_in_batch, U_in2train: in_labels, Xbd_left: x_bd_batch,
-                           t_bd: t_bd_batch, Ubd_left: bd_labels, Xinit: x_init_batch, tinit: t_init_batch,
-                           Uinit: init_labels, in_learning_rate: tmp_lr, boundary_penalty: temp_penalty_bd,
+            _, loss_in_tmp, loss_bd_tmp, loss_init_tmp, loss_tmp, unn_train, pwb = sess.run(
+                [train_my_loss, loss_in, loss_bd, loss_init, loss, UNN2train, PWB],
+                feed_dict={X_in: x_in_batch, t_in: t_in_batch, Xbd_left: x_bd_batch,
+                           t_bd: t_bd_batch, Ubd_left: Utrue2bd, Xinit: x_init_batch, tinit: t_init_batch,
+                           Uinit: Utrue2init, in_learning_rate: tmp_lr, boundary_penalty: temp_penalty_bd,
                            init_penalty: temp_penalty_init})
 
-            # du2dx, du2dt, du2dxx = sess.run([dUNN2dX, dUNN2dt, dUNN2dxx],
-            #                                 feed_dict={X_in: x_in_batch, t_in: t_in_batch, U_in2train: in_labels,
-            #                                 Xbd_left: x_bd_batch, t_bd: t_bd_batch, Ubd_left: bd_labels,
-            #                                 Xinit: x_init_batch, tinit: t_init_batch, Uinit: init_labels,
-            #                                 in_learning_rate: tmp_lr, boundary_penalty: temp_penalty_bd,
-            #                                 init_penalty: temp_penalty_init})
-
-            loss_in_all.append(loss_it_tmp)
+            loss_in_all.append(loss_in_tmp)
             loss_bd_all.append(loss_bd_tmp)
             loss_init_all.append(loss_init_tmp)
             loss_all.append(loss_tmp)
-            train_mse_all.append(train_mse_tmp)
-            train_rel_all.append(train_res_tmp)
             if i_epoch % 100 == 0:
                 run_times = time.time() - t0
                 DNN_Log_Print.print_and_log_train_one_epoch2space_time(
-                    i_epoch, run_times, tmp_lr, temp_penalty_bd, temp_penalty_init, pwb, loss_it_tmp, loss_bd_tmp, loss_init_tmp, loss_tmp,
-                    train_mse_tmp, train_res_tmp, log_out=log_fileout)
+                    i_epoch, run_times, tmp_lr, temp_penalty_bd, temp_penalty_init, pwb, loss_in_tmp, loss_bd_tmp, loss_init_tmp, loss_tmp,
+                    0.0, 0.0, log_out=log_fileout)
 
                 # # ---------------------------   test network ----------------------------------------------
                 test_epoch.append(i_epoch / 100)
@@ -312,12 +307,6 @@ def solve_ocean(R):
                 test_rel_all.append(res2test)
 
                 DNN_Log_Print.print_and_log_test_one_epoch(mse2test, res2test, log_out=log_fileout)
-                # DNN_tools.log_string(str(du2dx), log_fileout)
-                # DNN_tools.log_string('\n', log_fileout)
-                # DNN_tools.log_string(str(du2dt), log_fileout)
-                # DNN_tools.log_string('\n', log_fileout)
-                # DNN_tools.log_string(str(du2dxx), log_fileout)
-                # DNN_tools.log_string('\n', log_fileout)
 
     # ------------------- save the training results into mat file and plot them -------------------------
     saveData.save_trainLosses2mat_SpaceTime(loss_in_all, loss_bd_all, loss_init_all, loss_all, name2in='loss2PDE',
@@ -332,9 +321,9 @@ def solve_ocean(R):
     plotData.plotTrain_loss_1act_func(loss_all, lossType='loss', seedNo=R['seed'], outPath=R['FolderName'],
                                       yaxis_scale=True)
 
-    saveData.save_train_MSE_REL2mat(train_mse_all, train_rel_all, actName=act_func, outPath=R['FolderName'])
-    plotData.plotTrain_MSE_REL_1act_func(train_mse_all, train_rel_all, actName=act_func, seedNo=R['seed'],
-                                         outPath=R['FolderName'], yaxis_scale=True)
+    # saveData.save_train_MSE_REL2mat(train_mse_all, train_rel_all, actName=act_func, outPath=R['FolderName'])
+    # plotData.plotTrain_MSE_REL_1act_func(train_mse_all, train_rel_all, actName=act_func, seedNo=R['seed'],
+    #                                      outPath=R['FolderName'], yaxis_scale=True)
 
     # ------------------- save the testing results into mat file and plot them -------------------------
     saveData.save_testMSE_REL2mat(test_mse_all, test_rel_all, actName=act_func, outPath=R['FolderName'])
@@ -394,7 +383,7 @@ if __name__ == "__main__":
         R['max_epoch'] = int(epoch_stop)
 
     R['PDE_type'] = 'Advection diffusion'
-    # R['equa_name'] = 'Ocean'
+    R['equa_name'] = 'Ocean'
     R['input_dim'] = 1                   # 输入维数，即问题的维数(几元问题)
     R['output_dim'] = 1                  # 输出维数
 
@@ -410,11 +399,11 @@ if __name__ == "__main__":
     R['loss_type'] = 'L2_loss'
 
     R['optimizer_name'] = 'Adam'     # 优化器
-    R['learning_rate'] = 1e-2        # 学习率
-    R['learning_rate_decay'] = 3e-4  # 学习率 decay
+    # R['learning_rate'] = 1e-2        # 学习率
+    # R['learning_rate_decay'] = 3e-4  # 学习率 decay
 
-    # R['learning_rate'] = 5e-3        # 学习率 decay
-    # R['learning_rate_decay'] = 1e-4  # 学习率 decay
+    R['learning_rate'] = 5e-3        # 学习率 decay
+    R['learning_rate_decay'] = 2e-4  # 学习率 decay
 
     # R['learning_rate'] = 2e-4        # 学习率
     # R['learning_rate_decay'] = 5e-5  # 学习率 decay

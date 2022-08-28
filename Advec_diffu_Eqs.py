@@ -17,31 +17,8 @@ def get_infos2Advection_1D(x_left=0.0, x_right=1.0, t_init=0.0, ws=0.1, ds=0.1, 
         return Utrue, Uleft, Uright, Uinit
 
 
-def get_infos2Convection_2D(equa_name=None, eps=0.1, region_lb=0.1, region_rt=1.0):
-    if equa_name == 'Convection2':
-        f = lambda x, y: eps * ((np.pi) ** 2) * (
-                tf.sin(np.pi * x) * tf.sin(np.pi * y) + 5 * tf.sin(10 * np.pi * x) * tf.sin(10 * np.pi * y)) + \
-                         tf.cos(18 * np.pi * y) * tf.sin(18 * np.pi * x) * \
-                         (0.5 * np.pi * tf.cos(np.pi * x) * tf.sin(np.pi * y) + 0.25 * np.pi * tf.cos(
-                             10 * np.pi * x) * tf.sin(10 * np.pi * y)) - \
-                         tf.cos(18 * np.pi * x) * tf.sin(18 * np.pi * y) * \
-                         (0.5 * np.pi * tf.sin(np.pi * x) * tf.cos(np.pi * y) + 0.25 * np.pi * tf.sin(
-                             10 * np.pi * x) * tf.cos(10 * np.pi * y))
-        A_eps = lambda x, y: eps * tf.ones_like(x)
-        u = lambda x, y: 0.5 * tf.sin(np.pi * x) * tf.sin(np.pi * y) + 0.025 * tf.sin(10 * np.pi * x) * tf.sin(
-            10 * np.pi * y)
-        bx = lambda x, y: tf.cos(18 * np.pi * y) * tf.sin(18 * np.pi * x)
-        by = lambda x, y: -tf.cos(18 * np.pi * x) * tf.sin(18 * np.pi * y)
-        ux_left = lambda x, y: 0.5 * tf.sin(np.pi * region_lb) * tf.sin(np.pi * y) + 0.025 * tf.sin(
-            10 * np.pi * region_lb) * tf.sin(10 * np.pi * y)
-        ux_right = lambda x, y: 0.5 * tf.sin(np.pi * region_rt) * tf.sin(np.pi * y) + 0.025 * tf.sin(
-            10 * np.pi * region_rt) * tf.sin(10 * np.pi * y)
-        uy_bottom = lambda x, y: 0.5 * tf.sin(np.pi * x) * tf.sin(np.pi * region_lb) + 0.025 * tf.sin(
-            10 * np.pi * x) * tf.sin(10 * np.pi * region_lb)
-        uy_top = lambda x, y: 0.5 * tf.sin(np.pi * x) * tf.sin(np.pi * region_rt) + 0.025 * tf.sin(
-            10 * np.pi * x) * tf.sin(10 * np.pi * region_rt)
-
-        return A_eps, bx, by, u, ux_left, ux_right, uy_top, uy_bottom, f
+def get_infos2Advection_2D(x_left=0.0, x_right=1.0, y_bottom=0.0, y_top=1.0, t_init=0.0, ws=0.1, ds=0.1, eqs_name=None):
+    return 0
 
 
 def get_infos2Convection_3D(input_dim=1, out_dim=1, mesh_number=2, intervalL=0.0, intervalR=1.0, equa_name=None):
