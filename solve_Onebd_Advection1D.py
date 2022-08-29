@@ -148,12 +148,14 @@ def solve_Advection_diffusion(R):
         U_true, U_left, U_right, U_init = Advec_diffu_Eqs.get_infos2Advection_1D(
             x_left=region_l, x_right=region_r, t_init=init_time, ws=ws, ds=ds, eqs_name=R['equa_name'])
     elif R['equa_name'] == 'Advection2':
-        ws = 0.8
-        ds = 0.005
+        # ws = 0.8
+        # ds = 0.005
+        ws = 5
+        ds = 0.5
         region_l = 1.0
         region_r = 5
         init_time = 0.0
-        end_time = 10.0
+        end_time = 20.0
         U_true, U_left, U_right, U_init = Advec_diffu_Eqs.get_infos2Advection_1D(
             x_left=region_l, x_right=region_r, t_init=init_time, ws=ws, ds=ds, eqs_name=R['equa_name'])
 
@@ -233,6 +235,8 @@ def solve_Advection_diffusion(R):
     x_test = DNN_data.rand_it(batchsize_test, input_dim, region_a=region_l, region_b=region_r)
     t_test = DNN_data.rand_it(batchsize_test, input_dim, region_a=init_time, region_b=end_time)
     # t_test = np.ones(shape=[batchsize_test, 1], dtype=np.float32) * 0.5
+    test_xt_points = np.concatenate([x_test, t_test], axis=-1)
+    saveData.save_testData_or_solus2mat(test_xt_points, dataName='testxy', outPath=R['FolderName'])
     u_true2test = U_true(x_test, t_test)
 
     # ConfigProto 加上allow_soft_placement=True就可以使用 gpu 了
@@ -409,8 +413,8 @@ if __name__ == "__main__":
         R['max_epoch'] = int(epoch_stop)
 
     R['PDE_type'] = 'Advection diffusion'
-    R['equa_name'] = 'Advection1'
-    # R['equa_name'] = 'Advection2'
+    # R['equa_name'] = 'Advection1'
+    R['equa_name'] = 'Advection2'
     R['input_dim'] = 1                   # 输入维数，即问题的维数(几元问题)
     R['output_dim'] = 1                  # 输出维数
 
@@ -476,21 +480,21 @@ if __name__ == "__main__":
         R['hidden_layers'] = (100, 80, 60, 60, 40)  # 1*250+250*100+100*80+80*80+80*60+60*1= 44510 个参数
 
     # &&&&&&&&&&&&&&&&&&& 激活函数的选择 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-    R['name2act_in'] = 'tanh'
+    # R['name2act_in'] = 'tanh'
     # R['name2act_in'] = 's2relu'
     # R['name2act_in'] = 'sin'
     # R['name2act_in'] = 'gelu'
     # R['name2act_in'] = 'mgelu'
-    # R['name2act_in'] = 'sinADDcos'
+    R['name2act_in'] = 'sinADDcos'
 
     # R['name2act_hidden'] = 'relu'
-    R['name2act_hidden'] = 'tanh'
+    # R['name2act_hidden'] = 'tanh'
     # R['name2act_hidden'] = 'srelu'
     # R['name2act_hidden'] = 's2relu'
     # R['name2act_hidden'] = 'sin'
     # R['name2act_hidden'] = 'gelu'
     # R['name2act_hidden'] = 'mgelu'
-    # R['name2act_hidden'] = 'sinADDcos'
+    R['name2act_hidden'] = 'sinADDcos'
     # R['name2act_hidden'] = 'elu'
     # R['name2act_hidden'] = 'phi'
 
@@ -501,6 +505,9 @@ if __name__ == "__main__":
         R['sfourier'] = 1.0
     elif R['model2NN'] == 'Fourier_DNN' and R['name2act_hidden'] == 's2relu':
         R['sfourier'] = 1.0
+    elif R['model2NN'] == 'Fourier_DNN' and R['name2act_hidden'] == 'sinADDcos':
+        R['sfourier'] = 0.5
+        # R['sfourier'] = 1.0
     else:
         R['sfourier'] = 1.0
 

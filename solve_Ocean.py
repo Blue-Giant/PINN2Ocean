@@ -91,22 +91,22 @@ class PDE_DNN(object):
         loss_bd = tf.reduce_mean(loss_bd_square)
         return loss_bd
 
-    def loss2Init(self, X=None, tinit=None, Uinit_exact=None, if_lambda2Uinit=True):
-        assert (X is not None)
+    def loss2Init(self, X_init=None, tinit=None, Uinit_exact=None, if_lambda2Uinit=True):
+        assert (X_init is not None)
         assert (tinit is not None)
         assert (Uinit_exact is not None)
 
-        shape2X = X.get_shape().as_list()
+        shape2X = X_init.get_shape().as_list()
         lenght2X_shape = len(shape2X)
         assert (lenght2X_shape == 2)
         assert (shape2X[-1] == 1)
 
         if if_lambda2Uinit:
-            Uinit = Uinit_exact(X, tinit)
+            Uinit = Uinit_exact(X_init, tinit)
         else:
             Uinit = Uinit_exact
 
-        XT = tf.matmul(X, self.mat2X) + tf.matmul(tinit, self.mat2T)
+        XT = tf.matmul(X_init, self.mat2X) + tf.matmul(tinit, self.mat2T)
         UNN_init = self.DNN(XT, scale=self.factor2freq, sFourier=self.sFourier)
         loss_init_square = tf.square(UNN_init - Uinit)
         loss_init = tf.reduce_mean(loss_init_square)
@@ -144,15 +144,15 @@ def solve_ocean(R):
     te = 20.0
     zsteps = 10
     tsteps = 100
-    ws = 0.001
-    ds = 0.0002
-    p = 0.0001
-    # ws = 0.1
-    # ds = 0.02
-    # p = 0.1
+    # ws = 0.001
+    # ds = 0.0002
+    # p2ocean = 0.0001
+    ws = 0.1
+    ds = 0.02
+    p2ocean = 0.1
 
-    # 生成数据
-    data = DataGen2(zs, ze, ts, te, zsteps=zsteps, tsteps=tsteps, ws=ws, ds=ds, p=p)
+    # # 生成数据
+    # data = DataGen2(zs, ze, ts, te, zsteps=zsteps, tsteps=tsteps, ws=ws, ds=ds, p=p2ocean)
 
     # 问题需要的设置
     batchsize_in = R['batch_size2interior']
@@ -201,7 +201,7 @@ def solve_ocean(R):
 
             loss_bd = model.loss2bd(X_bd=Xbd_left, t=t_bd, Ubd_exact=Ubd_left, if_lambda2Ubd=False)
 
-            loss_init = model.loss2Init(X=Xinit, tinit=tinit, Uinit_exact=Uinit, if_lambda2Uinit=False)
+            loss_init = model.loss2Init(X_init=Xinit, tinit=tinit, Uinit_exact=Uinit, if_lambda2Uinit=False)
 
             regularSum2WB = model.get_regularSum2WB()
             PWB = penalty2WB * regularSum2WB
@@ -225,7 +225,7 @@ def solve_ocean(R):
     saveData.save_testData_or_solus2mat(test_xt_points, dataName='testxy', outPath=R['FolderName'])
     u_true2test = np.zeros_like(x_test)
     for i in range(batchsize_test):
-        temp = data_gen2.gen_label(x_test[i], t_test[i], ws, ds, 100, p)
+        temp = data_gen2.gen_label(x_test[i], t_test[i], ws, ds, 100, p2ocean)
         u_true2test[i] = temp
 
     # ConfigProto 加上allow_soft_placement=True就可以使用 gpu 了
@@ -236,13 +236,12 @@ def solve_ocean(R):
         sess.run(tf.compat.v1.global_variables_initializer())
         tmp_lr = learning_rate
         for i_epoch in range(R['max_epoch'] + 1):
-
             x_in_batch = DNN_data.rand_it(batchsize_in, input_dim, region_a=zs, region_b=ze)
             t_in_batch = DNN_data.rand_it(batchsize_in, 1, region_a=ts, region_b=te)
 
-            x_bd_batch, xr_bd_batch = DNN_data.rand_bd_1D(batchsize_bd, input_dim, region_a=zs, region_b=ze)
+            xl_bd_batch, xr_bd_batch = DNN_data.rand_bd_1D(batchsize_bd, input_dim, region_a=zs, region_b=ze)
             t_bd_batch = DNN_data.rand_it(batchsize_bd, 1, region_a=ts, region_b=te)
-            Utrue2bd = np.ones(shape=[batchsize_init, 1], dtype=np.float32) * p
+            Utrue2bd_left = np.ones(shape=[batchsize_init, 1], dtype=np.float32) * p2ocean
 
             x_init_batch = DNN_data.rand_it(batchsize_init, input_dim, region_a=zs, region_b=ze)
             t_init_batch = np.ones(shape=[batchsize_init, 1], dtype=np.float32) * ts
@@ -283,8 +282,8 @@ def solve_ocean(R):
 
             _, loss_in_tmp, loss_bd_tmp, loss_init_tmp, loss_tmp, unn_train, pwb = sess.run(
                 [train_my_loss, loss_in, loss_bd, loss_init, loss, UNN2train, PWB],
-                feed_dict={X_in: x_in_batch, t_in: t_in_batch, Xbd_left: x_bd_batch,
-                           t_bd: t_bd_batch, Ubd_left: Utrue2bd, Xinit: x_init_batch, tinit: t_init_batch,
+                feed_dict={X_in: x_in_batch, t_in: t_in_batch, Xbd_left: xl_bd_batch,
+                           t_bd: t_bd_batch, Ubd_left: Utrue2bd_left, Xinit: x_init_batch, tinit: t_init_batch,
                            Uinit: Utrue2init, in_learning_rate: tmp_lr, boundary_penalty: temp_penalty_bd,
                            init_penalty: temp_penalty_init})
 
@@ -295,8 +294,8 @@ def solve_ocean(R):
             if i_epoch % 100 == 0:
                 run_times = time.time() - t0
                 DNN_Log_Print.print_and_log_train_one_epoch2space_time(
-                    i_epoch, run_times, tmp_lr, temp_penalty_bd, temp_penalty_init, pwb, loss_in_tmp, loss_bd_tmp, loss_init_tmp, loss_tmp,
-                    0.0, 0.0, log_out=log_fileout)
+                    i_epoch, run_times, tmp_lr, temp_penalty_bd, temp_penalty_init, pwb, loss_in_tmp, loss_bd_tmp,
+                    loss_init_tmp, loss_tmp, 0.0, 0.0, log_out=log_fileout)
 
                 # # ---------------------------   test network ----------------------------------------------
                 test_epoch.append(i_epoch / 100)
@@ -449,15 +448,15 @@ if __name__ == "__main__":
     # &&&&&&&&&&&&&&&&&&& 激活函数的选择 &&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     # R['name2act_in'] = 'tanh'
     # R['name2act_in'] = 's2relu'
-    R['name2act_in'] = 'sin'
-    # R['name2act_in'] = 'sinADDcos'
+    # R['name2act_in'] = 'sin'
+    R['name2act_in'] = 'sinADDcos'
 
     # R['name2act_hidden'] = 'relu'
     # R['name2act_hidden'] = 'tanh'
     # R['name2act_hidden'] = 'srelu'
     # R['name2act_hidden'] = 's2relu'
-    R['name2act_hidden'] = 'sin'
-    # R['name2act_hidden'] = 'sinADDcos'
+    # R['name2act_hidden'] = 'sin'
+    R['name2act_hidden'] = 'sinADDcos'
     # R['name2act_hidden'] = 'elu'
     # R['name2act_hidden'] = 'phi'
 
@@ -468,6 +467,9 @@ if __name__ == "__main__":
         R['sfourier'] = 1.0
     elif R['model2NN'] == 'Fourier_DNN' and R['name2act_hidden'] == 's2relu':
         R['sfourier'] = 1.0
+    elif R['model2NN'] == 'Fourier_DNN' and R['name2act_hidden'] == 'sinADDcos':
+        R['sfourier'] = 0.5
+        # R['sfourier'] = 1.0
     else:
         R['sfourier'] = 1.0
 

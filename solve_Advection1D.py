@@ -148,12 +148,14 @@ def solve_Advection_diffusion(R):
         U_true, U_left, U_right, U_init = Advec_diffu_Eqs.get_infos2Advection_1D(
             x_left=region_l, x_right=region_r, t_init=init_time, ws=ws, ds=ds, eqs_name=R['equa_name'])
     elif R['equa_name'] == 'Advection2':
-        ws = 0.8
-        ds = 0.005
+        # ws = 0.8
+        # ds = 0.005
+        ws = 5
+        ds = 0.5
         region_l = 1.0
         region_r = 5
         init_time = 0.0
-        end_time = 10.0
+        end_time = 20.0
         U_true, U_left, U_right, U_init = Advec_diffu_Eqs.get_infos2Advection_1D(
             x_left=region_l, x_right=region_r, t_init=init_time, ws=ws, ds=ds, eqs_name=R['equa_name'])
 
@@ -233,6 +235,8 @@ def solve_Advection_diffusion(R):
     x_test = DNN_data.rand_it(batchsize_test, input_dim, region_a=region_l, region_b=region_r)
     t_test = DNN_data.rand_it(batchsize_test, input_dim, region_a=init_time, region_b=end_time)
     # t_test = np.ones(shape=[batchsize_test, 1], dtype=np.float32) * 0.5
+    test_xt_points = np.concatenate([x_test, t_test], axis=-1)
+    saveData.save_testData_or_solus2mat(test_xt_points, dataName='testxy', outPath=R['FolderName'])
     u_true2test = U_true(x_test, t_test)
 
     # ConfigProto 加上allow_soft_placement=True就可以使用 gpu 了
@@ -446,8 +450,8 @@ if __name__ == "__main__":
     # R['penalty2weight_biases'] = 0.0025                 # Regularization parameter for weights
 
     # 边界的惩罚处理方式,以及边界的惩罚因子
-    R['activate_penalty2bd_increase'] = 0
-    # R['activate_penalty2bd_increase'] = 1
+    # R['activate_penalty2bd_increase'] = 0
+    R['activate_penalty2bd_increase'] = 1
 
     if R['activate_penalty2bd_increase'] == 0:
         R['init_boundary_penalty'] = 100  # Regularization parameter for boundary conditions
