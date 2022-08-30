@@ -15,6 +15,9 @@ import DNN_Log_Print
 import DNN_tools
 import DNN_data
 
+# reference: Derivation of settling velocity, eddy diffusivity and pick-up rate from field-measured suspended sediment
+#            concentration profiles in the horizontally uniform but vertically unsteady scenario
+
 
 class PDE_DNN(object):
     def __init__(self, input_dim=2, out_dim=1, hidden_layer=None, Model_name='DNN', name2actIn='tanh',

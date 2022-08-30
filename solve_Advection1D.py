@@ -16,6 +16,9 @@ import DNN_tools
 import Advec_diffu_Eqs
 import DNN_data
 
+# reference: HIGH-ORDER FINITE DIFFERENCE SCHEMES FOR SOLVING THE  ADVECTION-DIFFUSION EQUATION
+#            Weighted finite difference techniques for the one-dimensional advection–diffusion equation
+
 
 class PDE_DNN(object):
     def __init__(self, input_dim=2, out_dim=1, hidden_layer=None, Model_name='DNN', name2actIn='tanh',
