@@ -16,11 +16,19 @@ import DNN_tools
 import Advec_diffu_Eqs
 import DNN_data
 
+# reference: 水质预测的粒计算求解域深度学习方法
+#            An analysis of the linear advection–diffusion equation using mesh-free and mesh-dependent methods
+# Solving the following advection diffusion:
+# Ut + ws*(grad U) - ds*laplace U = f(x,t,U)
+# where
+# f(x,t, u) = -U*U+G(x,t) and G(x,t) depend on PDE and Exact solution
+# Exact solution U(x,t) = tx1*x2*(1-x1)*(1-x2)*exp(x1+x2)
+
 
 class PDE_DNN(object):
     def __init__(self, input_dim=2, out_dim=1, hidden_layer=None, Model_name='DNN', name2actIn='tanh',
                  name2actHidden='tanh', name2actOut='linear', opt2regular_WB='L2', type2numeric='float32',
-                 factor2freq=None, sFourier=1.0, ws=0.001, ds=0.0002, HighFreq=False):
+                 factor2freq=None, sFourier=1.0, ws2x=0.001, ws2y=0.0002, ds2x=0.1, ds2y=0.1, HighFreq=False):
         super(PDE_DNN, self).__init__()
         if 'DNN' == str.upper(Model_name):
             self.DNN = DNN_Class_base.Pure_Dense_Net(
@@ -46,29 +54,46 @@ class PDE_DNN(object):
         self.opt2regular_WB = opt2regular_WB
         self.sFourier = sFourier
 
-        self.ws = ws
-        self.ds = ds
+        self.ws2x = ws2x
+        self.ws2y = ws2y
+        self.ds2x = ds2x
+        self.ds2y = ds2y
 
         self.mat2X = tf.constant([[1, 0]], dtype=self.float_type)  # 1 行 2 列
         self.mat2T = tf.constant([[0, 1]], dtype=self.float_type)  # 1 行 2 列
 
-    def loss2PDE(self, X=None, t=None, loss_type='l2_loss'):
-        assert (X is not None)
+    def loss2PDE(self, XY=None, t=None, fside=None, if_lambda2fside=True, loss_type='l2_loss'):
+        assert (XY is not None)
         assert (t is not None)
 
-        shape2X = X.get_shape().as_list()
-        lenght2X_shape = len(shape2X)
-        assert (lenght2X_shape == 2)
-        assert (shape2X[-1] == 1)
+        shape2XY = XY.get_shape().as_list()
+        lenght2XY_shape = len(shape2XY)
+        assert (lenght2XY_shape == 2)
+        assert (shape2XY[-1] == 2)
 
-        XT = tf.matmul(X, self.mat2X) + tf.matmul(t, self.mat2T)
+        X = tf.reshape(XY[:, 0], shape=[-1, 1])
+        Y = tf.reshape(XY[:, 1], shape=[-1, 1])
 
-        UNN = self.DNN(XT, scale=self.factor2freq, sFourier=self.sFourier)
-        dUNN2X = tf.gradients(UNN, X)[0]
+        if if_lambda2fside:
+            force_side = fside(X, Y, t)
+        else:
+            force_side = fside
+
+        XYT = tf.matmul(XY, self.mat2X) + tf.matmul(t, self.mat2T)
+
+        UNN = self.DNN(XYT, scale=self.factor2freq, sFourier=self.sFourier)
         dUNN2t = tf.gradients(UNN, t)[0]
-        dUNNxx = tf.gradients(dUNN2X, X)[0]
 
-        loss_pde = dUNN2t + self.ws * dUNN2X - self.ds * dUNNxx
+        dUNN2XY = tf.gradients(UNN, XY)[0]
+        dUNN2X = tf.gather(dUNN2XY, [0], axis=-1)
+        dUNN2Y = tf.gather(dUNN2XY, [1], axis=-1)
+
+        dUNNxxy = tf.gradients(dUNN2X, XY)[0]
+        dUNNyxy = tf.gradients(dUNN2Y, XY)[0]
+        dUNNxx = tf.gather(dUNNxxy, [0], axis=-1)
+        dUNNyy = tf.gather(dUNNyxy, [1], axis=-1)
+
+        loss_pde = dUNN2t + self.ws2x * dUNN2X + self.ws2y * dUNN2Y - self.ds2x * dUNNxx + self.ds2y * dUNNyy - force_side
         loss_it = tf.reduce_mean(tf.square(loss_pde))
         return UNN, loss_it, dUNN2X, dUNN2t, dUNNxx
 
@@ -187,10 +212,14 @@ def solve_Advection_diffusion(R):
 
             Xbd_left = tf.compat.v1.placeholder(tf.float32, name='Xbd_left', shape=[batchsize_bd, input_dim])    # *行1列
             Xbd_right = tf.compat.v1.placeholder(tf.float32, name='Xbd_right', shape=[batchsize_bd, input_dim])  # *行1列
+            Xbd_bottom = tf.compat.v1.placeholder(tf.float32, name='Xbd_bottom', shape=[batchsize_bd, input_dim])  # *行1列
+            Xbd_top = tf.compat.v1.placeholder(tf.float32, name='Xbd_top', shape=[batchsize_bd, input_dim])  # *行1列
             t_bd = tf.compat.v1.placeholder(tf.float32, name='t_bd', shape=[batchsize_bd, 1])
 
             Ubd_left = tf.compat.v1.placeholder(tf.float32, name='Ubd_left', shape=[batchsize_bd, 1])
             Ubd_right = tf.compat.v1.placeholder(tf.float32, name='Ubd_right', shape=[batchsize_bd, 1])
+            Ubd_bottom = tf.compat.v1.placeholder(tf.float32, name='Ubd_bottom', shape=[batchsize_bd, 1])
+            Ubd_top = tf.compat.v1.placeholder(tf.float32, name='Ubd_top', shape=[batchsize_bd, 1])
 
             Xinit = tf.compat.v1.placeholder(tf.float32, name='Xinit', shape=[batchsize_init, input_dim])        # *行1列
             tinit = tf.compat.v1.placeholder(tf.float32, name='tinit', shape=[batchsize_init, 1])
@@ -207,7 +236,9 @@ def solve_Advection_diffusion(R):
 
             loss_left = model.loss2bd(X_bd=Xbd_left, t=t_bd, Ubd_exact=Ubd_left, if_lambda2Ubd=False)
             loss_right = model.loss2bd(X_bd=Xbd_right, t=t_bd, Ubd_exact=Ubd_right, if_lambda2Ubd=False)
-            loss_bd = loss_left + loss_right
+            loss_bottom = model.loss2bd(X_bd=Xbd_bottom, t=t_bd, Ubd_exact=Ubd_bottom, if_lambda2Ubd=False)
+            loss_top = model.loss2bd(X_bd=Xbd_top, t=t_bd, Ubd_exact=Ubd_top, if_lambda2Ubd=False)
+            loss_bd = loss_left + loss_right + loss_bottom + loss_top
 
             loss_init = model.loss2Init(X=Xinit, tinit=tinit, Uinit_exact=Uinit, if_lambda2Uinit=False)
 
@@ -247,12 +278,14 @@ def solve_Advection_diffusion(R):
             t_in_batch = DNN_data.rand_it(batchsize_in, 1, region_a=init_time, region_b=end_time)
             Uin_numpy = U_true(x_in_batch, t_in_batch)
 
-            xl_bd_batch, xr_bd_batch = DNN_data.rand_bd_1D(batchsize_bd, input_dim,
-                                                           region_a=region_l, region_b=region_r)
+            xl_bd_batch, xr_bd_batch, yb_bd_batch, yt_bd_batch = DNN_data.rand_bd_2D(
+                batchsize_bd, input_dim, region_a=region_l, region_b=region_r)
             t_bd_batch = DNN_data.rand_it(batchsize_bd, 1, region_a=init_time, region_b=end_time)
 
             Ubd2left_numpy = U_left(xl_bd_batch, t_bd_batch)
             Ubd2right_numpy = U_right(xr_bd_batch, t_bd_batch)
+            Ubd2bottom_numpy = U_left(yb_bd_batch, t_bd_batch)
+            Ubd2top_numpy = U_right(yt_bd_batch, t_bd_batch)
 
             x_init_batch = DNN_data.rand_it(batchsize_init, input_dim, region_a=region_l, region_b=region_r)
             t_init_batch = np.ones(shape=[batchsize_init, 1], dtype=np.float32) * init_time
@@ -295,17 +328,11 @@ def solve_Advection_diffusion(R):
             _, loss_it_tmp, loss_bd_tmp, loss_init_tmp, loss_tmp, train_mse_tmp, train_res_tmp, pwb = sess.run(
                 [train_my_loss, loss_it, loss_bd, loss_init, loss, mean_square_error, residual_error, PWB],
                 feed_dict={X_in: x_in_batch, t_in: t_in_batch, U_in2train: Uin_numpy, Xbd_left: xl_bd_batch,
-                           Xbd_right: xr_bd_batch, t_bd: t_bd_batch, Ubd_left: Ubd2left_numpy,
-                           Ubd_right: Ubd2right_numpy, Xinit: x_init_batch, tinit: t_init_batch,
-                           Uinit: Uinit_numpy, in_learning_rate: tmp_lr, boundary_penalty: temp_penalty_bd,
+                           Xbd_right: xr_bd_batch, Xbd_bottom: yb_bd_batch, Xbd_top: yt_bd_batch, t_bd: t_bd_batch,
+                           Ubd_left: Ubd2left_numpy, Ubd_right: Ubd2right_numpy, Ubd_bottom: Ubd2bottom_numpy,
+                           Ubd_top: Ubd2top_numpy, Xinit: x_init_batch, tinit: t_init_batch, Uinit: Uinit_numpy,
+                           in_learning_rate: tmp_lr, boundary_penalty: temp_penalty_bd,
                            init_penalty: temp_penalty_init})
-
-            # du2dx, du2dt, du2dxx = sess.run([dUNN2dX, dUNN2dt, dUNN2dxx],
-            #                                 feed_dict={X_in: x_in_batch, t_in: t_in_batch, U_in2train: in_labels,
-            #                                 Xbd_left: x_bd_batch, t_bd: t_bd_batch, Ubd_left: bd_labels,
-            #                                 Xinit: x_init_batch, tinit: t_init_batch, Uinit: init_labels,
-            #                                 in_learning_rate: tmp_lr, boundary_penalty: temp_penalty_bd,
-            #                                 init_penalty: temp_penalty_init})
 
             loss_in_all.append(loss_it_tmp)
             loss_bd_all.append(loss_bd_tmp)
@@ -328,12 +355,6 @@ def solve_Advection_diffusion(R):
                 test_rel_all.append(res2test)
 
                 DNN_Log_Print.print_and_log_test_one_epoch(mse2test, res2test, log_out=log_fileout)
-                # DNN_tools.log_string(str(du2dx), log_fileout)
-                # DNN_tools.log_string('\n', log_fileout)
-                # DNN_tools.log_string(str(du2dt), log_fileout)
-                # DNN_tools.log_string('\n', log_fileout)
-                # DNN_tools.log_string(str(du2dxx), log_fileout)
-                # DNN_tools.log_string('\n', log_fileout)
 
     # ------------------- save the training results into mat file and plot them -------------------------
     saveData.save_trainLosses2mat_SpaceTime(loss_in_all, loss_bd_all, loss_init_all, loss_all, name2in='loss2PDE',
